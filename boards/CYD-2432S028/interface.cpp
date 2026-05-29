@@ -39,7 +39,7 @@ CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 ***************************************************************************************/
 SPIClass touchSPI;
 void _setup_gpio() {
-#ifndef HAS_CAPACITIVE_TOUCH // Capacitive Touchscreen uses I2C to communicate
+#ifndef HAS_CAPACITIVE_TOUCH
     pinMode(XPT2046_CS, OUTPUT);
     digitalWrite(XPT2046_CS, HIGH);
 #endif
@@ -51,7 +51,7 @@ void _setup_gpio() {
         Serial.println("Failed to find GT911 - check your wiring!");
     }
 #else
-#if !defined(USE_TFT_eSPI_TOUCH) // Use libraries
+#if !defined(USE_TFT_eSPI_TOUCH)
     if (!touch.begin()) {
         Serial.println("Touch IC not Started");
         log_i("Touch IC not Started");
@@ -69,10 +69,9 @@ void _setup_gpio() {
 ***************************************************************************************/
 void _post_setup_gpio() {
     // ==========================================
-    // FORCE FORMAT LITTLEFS - HAPUS CALDATA & CONFIG
-    // Uncomment baris di bawah ini sekali aja, upload, lalu comment lagi
+    // ✅ FORCE FORMAT LITTLEFS - HAPUS CALDATA & CONFIG
+    // Jalankan sekali aja, upload, lalu hapus/comment lagi
     // ==========================================
-    /*
     if (LittleFS.begin(true)) {
         Serial.println(">>> FORMATTING LITTLEFS... <<<");
         LittleFS.format();
@@ -80,7 +79,6 @@ void _post_setup_gpio() {
         delay(3000);
         ESP.restart();
     }
-    */
     // ==========================================
 
 #if defined(USE_TFT_eSPI_TOUCH)
@@ -112,7 +110,6 @@ void _post_setup_gpio() {
     tft.setTouch(calData);
 #endif
 
-    // Brightness control must be initialized after tft in this case @Pirata
     pinMode(TFT_BL, OUTPUT);
     ledcAttach(TFT_BL, TFT_BRIGHT_FREQ, TFT_BRIGHT_Bits);
     ledcWrite(TFT_BL, 255);
@@ -131,8 +128,6 @@ void _setBrightness(uint8_t brightval) {
     else if (brightval == 25) dutyCycle = 20;
     else if (brightval == 0) dutyCycle = 0;
     else dutyCycle = ((brightval * 255) / 100);
-
-    // log_i("dutyCycle for bright 0-255: %d", dutyCycle);
     ledcWrite(TFT_BL, dutyCycle);
 }
 
@@ -143,106 +138,57 @@ void _setBrightness(uint8_t brightval) {
 void InputHandler(void) {
     static long d_tmp = 0;
     if (millis() - d_tmp > 200 || LongPress) {
-        // I know R3CK.. I Should NOT nest if statements..
-        // but it is needed to not keep SPI bus used without need, it save resources
 #if defined(USE_TFT_eSPI_TOUCH)
         TouchPoint t;
         checkPowerSaveTime();
         bool _IH_touched = tft.getTouch(&t.x, &t.y);
         if (_IH_touched) {
-            NextPress = false;
-            PrevPress = false;
-            UpPress = false;
-            DownPress = false;
-            SelPress = false;
-            EscPress = false;
-            AnyKeyPress = false;
-            NextPagePress = false;
-            PrevPagePress = false;
-            touchPoint.pressed = false;
-            _IH_touched = false;
+            NextPress = false; PrevPress = false; UpPress = false; DownPress = false;
+            SelPress = false; EscPress = false; AnyKeyPress = false;
+            NextPagePress = false; PrevPagePress = false;
+            touchPoint.pressed = false; _IH_touched = false;
 #elif defined(TOUCH_GT911_I2C)
         static unsigned long tm = millis();
         TouchPointPro t;
         uint8_t touched = 0;
         uint8_t rot = 5;
-
         if (rot != bruceConfigPins.rotation) {
-            if (bruceConfigPins.rotation == 1) {
-                touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH);
-                touch.setSwapXY(true);
-                touch.setMirrorXY(false, true);
-            }
-            if (bruceConfigPins.rotation == 3) {
-                touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH);
-                touch.setSwapXY(true);
-                touch.setMirrorXY(true, false);
-            }
-            if (bruceConfigPins.rotation == 0) {
-                touch.setMaxCoordinates(TFT_WIDTH, TFT_HEIGHT);
-                touch.setSwapXY(false);
-                touch.setMirrorXY(false, false);
-            }
-            if (bruceConfigPins.rotation == 2) {
-                touch.setMaxCoordinates(TFT_WIDTH, TFT_HEIGHT);
-                touch.setSwapXY(false);
-                touch.setMirrorXY(true, true);
-            }
+            if (bruceConfigPins.rotation == 1) { touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH); touch.setSwapXY(true); touch.setMirrorXY(false, true); }
+            if (bruceConfigPins.rotation == 3) { touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH); touch.setSwapXY(true); touch.setMirrorXY(true, false); }
+            if (bruceConfigPins.rotation == 0) { touch.setMaxCoordinates(TFT_WIDTH, TFT_HEIGHT); touch.setSwapXY(false); touch.setMirrorXY(false, false); }
+            if (bruceConfigPins.rotation == 2) { touch.setMaxCoordinates(TFT_WIDTH, TFT_HEIGHT); touch.setSwapXY(false); touch.setMirrorXY(true, true); }
             rot = bruceConfigPins.rotation;
         }
-        // Track touch state to prevent double events on press/release
         static bool lastTouchState = false;
         static unsigned long lastTouchTime = 0;
-
         touched = touch.getPoint(&t.x, &t.y);
         bool currentTouchState = touched > 0;
-
-        // Only process new touch presses with debouncing
-        if (currentTouchState && !lastTouchState && (millis() - lastTouchTime) > 100) {
-            // This is a genuine new touch press
-            lastTouchTime = millis();
-        } else if (!currentTouchState || lastTouchState) {
-            // Touch release or continuing touch - ignore
-            touched = 0;
-        }
+        if (currentTouchState && !lastTouchState && (millis() - lastTouchTime) > 100) { lastTouchTime = millis(); }
+        else if (!currentTouchState || lastTouchState) { touched = 0; }
         lastTouchState = currentTouchState;
-        if (((millis() - tm) > 190 || LongPress) && touched) {
-            tm = millis();
+        if (((millis() - tm) > 190 || LongPress) && touched) { tm = millis();
 #else
         if (touch.touched()) {
             auto t = touch.getPointScaled();
 #endif
 #if !defined(TOUCH_GT911_I2C)
-            // Serial.printf("\nRAW: Touch Pressed on x=%d, y=%d",t.x, t.y);
-            if (bruceConfigPins.rotation == 3) {
-                t.y = (tftHeight + 20) - t.y;
-                t.x = tftWidth - t.x;
-            }
-            if (bruceConfigPins.rotation == 0) {
-                int tmp = t.x;
-                t.x = tftWidth - t.y;
-                t.y = tmp;
-            }
-            if (bruceConfigPins.rotation == 2) {
-                int tmp = t.x;
-                t.x = t.y;
-                t.y = (tftHeight + 20) - tmp;
-            }
+            if (bruceConfigPins.rotation == 3) { t.y = (tftHeight + 20) - t.y; t.x = tftWidth - t.x; }
+            if (bruceConfigPins.rotation == 0) { int tmp = t.x; t.x = tftWidth - t.y; t.y = tmp; }
+            if (bruceConfigPins.rotation == 2) { int tmp = t.x; t.x = t.y; t.y = (tftHeight + 20) - tmp; }
 #endif
-            // Serial.printf("\nROT: Touch Pressed on x=%d, y=%d\n", t.x, t.y);
-
             if (!wakeUpScreen()) AnyKeyPress = true;
             else goto END;
-
-            // Touch point global variable
-            touchPoint.x = t.x;
-            touchPoint.y = t.y;
-            touchPoint.pressed = true;
+            touchPoint.x = t.x; touchPoint.y = t.y; touchPoint.pressed = true;
             touchHeatMap(touchPoint);
         END:
             d_tmp = millis();
         }
     }
+    
+    // ✅ FALLBACK: Baca tombol fisik kalau touch error
+    if (digitalRead(35) == LOW) { PrevPress = true; AnyKeyPress = true; delay(50); }
+    if (digitalRead(34) == LOW) { NextPress = true; AnyKeyPress = true; delay(50); }
+    if (digitalRead(0) == LOW)  { SelPress = true; AnyKeyPress = true; delay(50); }
 }
 
 /*********************************************************************
