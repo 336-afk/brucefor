@@ -14,16 +14,16 @@ struct TouchPointPro {
 };
 #else
 #include "CYD28_TouchscreenC.h"
-#define CYD28_DISPLAY_HOR_RES_MAX 270
-#define CYD28_DISPLAY_VER_RES_MAX 360
+#define CYD28_DISPLAY_HOR_RES_MAX 240
+#define CYD28_DISPLAY_VER_RES_MAX 320
 CYD28_TouchC touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #endif
 #elif defined(USE_TFT_eSPI_TOUCH)
 #define XPT2046_CS TOUCH_CS
 #else
 #include "CYD28_TouchscreenR.h"
-#define CYD28_DISPLAY_HOR_RES_MAX 270
-#define CYD28_DISPLAY_VER_RES_MAX 360
+#define CYD28_DISPLAY_HOR_RES_MAX 240
+#define CYD28_DISPLAY_VER_RES_MAX 320
 CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #if defined(TOUCH_XPT2046_SPI)
 #define XPT2046_CS XPT2046_SPI_CONFIG_CS_GPIO_NUM
@@ -32,18 +32,12 @@ CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #endif
 #endif
 
-/***************************************************************************************
-** Function name: _setup_gpio()
-** Location: main.cpp
-** Description:   initial setup for the device
-***************************************************************************************/
 SPIClass touchSPI;
 void _setup_gpio() {
 #ifndef HAS_CAPACITIVE_TOUCH
     pinMode(XPT2046_CS, OUTPUT);
     digitalWrite(XPT2046_CS, HIGH);
 #endif
-
 #if defined(TOUCH_GT911_I2C)
     pinMode(BOARD_TOUCH_INT, INPUT);
     touch.setPins(-1, BOARD_TOUCH_INT);
@@ -58,46 +52,20 @@ void _setup_gpio() {
     } else log_i("Touch IC Started");
 #endif
 #endif
-
     bruceConfig.colorInverted = 0;
 }
 
-/***************************************************************************************
-** Function name: _post_setup_gpio()
-** Location: main.cpp
-** Description:   second stage gpio setup to make a few functions work
-***************************************************************************************/
 void _post_setup_gpio() {
-    // ==========================================
-    // ✅ FORCE FORMAT LITTLEFS - SUDAH DI-NONAKTIFKAN
-    // Jangan uncomment kecuali mau format ulang lagi!
-    // ==========================================
-    /*
-    if (LittleFS.begin(true)) {
-        Serial.println(">>> FORMATTING LITTLEFS... <<<");
-        LittleFS.format();
-        Serial.println(">>> FORMAT DONE! RESTARTING... <<<");
-        delay(3000);
-        ESP.restart();
-    }
-    */
-    // ==========================================
-
 #if defined(USE_TFT_eSPI_TOUCH)
     pinMode(TOUCH_CS, OUTPUT);
     uint16_t calData[5];
     File caldata = LittleFS.open("/calData", "r");
-
     if (!caldata) {
-        // ✅ KALAU FILE /calData TIDAK ADA, MASUK MODE KALIBRASI
         tft.setRotation(ROTATION);
         tft.calibrateTouch(calData, TFT_WHITE, TFT_BLACK, 10);
-
         caldata = LittleFS.open("/calData", "w");
         if (caldata) {
-            caldata.printf(
-                "%d\n%d\n%d\n%d\n%d\n", calData[0], calData[1], calData[2], calData[3], calData[4]
-            );
+            caldata.printf("%d\n%d\n%d\n%d\n%d\n", calData[0], calData[1], calData[2], calData[3], calData[4]);
             caldata.close();
         }
     } else {
@@ -112,17 +80,11 @@ void _post_setup_gpio() {
     }
     tft.setTouch(calData);
 #endif
-
     pinMode(TFT_BL, OUTPUT);
     ledcAttach(TFT_BL, TFT_BRIGHT_FREQ, TFT_BRIGHT_Bits);
     ledcWrite(TFT_BL, 255);
 }
 
-/*********************************************************************
-** Function: setBrightness
-** location: settings.cpp
-** set brightness value
-**********************************************************************/
 void _setBrightness(uint8_t brightval) {
     int dutyCycle;
     if (brightval == 100) dutyCycle = 255;
@@ -134,10 +96,6 @@ void _setBrightness(uint8_t brightval) {
     ledcWrite(TFT_BL, dutyCycle);
 }
 
-/*********************************************************************
-** Function: InputHandler
-** Handles the variables PrevPress, NextPress, SelPress, AnyKeyPress and EscPress
-**********************************************************************/
 void InputHandler(void) {
     static long d_tmp = 0;
     if (millis() - d_tmp > 200 || LongPress) {
@@ -187,26 +145,15 @@ void InputHandler(void) {
             d_tmp = millis();
         }
     }
-    
-    // ✅ FALLBACK: Baca tombol fisik kalau touch error
+    // Fallback tombol fisik
     if (digitalRead(35) == LOW) { PrevPress = true; AnyKeyPress = true; delay(50); }
     if (digitalRead(34) == LOW) { NextPress = true; AnyKeyPress = true; delay(50); }
     if (digitalRead(0) == LOW)  { SelPress = true; AnyKeyPress = true; delay(50); }
 }
 
-/*********************************************************************
-** Function: powerOff
-** location: mykeyboard.cpp
-** Turns off the device (or try to)
-**********************************************************************/
 void powerOff() {
     esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW);
     esp_deep_sleep_start();
 }
 
-/*********************************************************************
-** Function: checkReboot
-** location: mykeyboard.cpp
-** Btn logic to turn off the device (name is odd btw)
-**********************************************************************/
 void checkReboot() {}
