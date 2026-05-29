@@ -69,9 +69,10 @@ void _setup_gpio() {
 ***************************************************************************************/
 void _post_setup_gpio() {
     // ==========================================
-    // ✅ FORCE FORMAT LITTLEFS - HAPUS CALDATA & CONFIG
-    // Jalankan sekali aja, upload, lalu hapus/comment lagi
+    // ✅ FORCE FORMAT LITTLEFS - SUDAH DI-NONAKTIFKAN
+    // Jangan uncomment kecuali mau format ulang lagi!
     // ==========================================
+    /*
     if (LittleFS.begin(true)) {
         Serial.println(">>> FORMATTING LITTLEFS... <<<");
         LittleFS.format();
@@ -79,6 +80,7 @@ void _post_setup_gpio() {
         delay(3000);
         ESP.restart();
     }
+    */
     // ==========================================
 
 #if defined(USE_TFT_eSPI_TOUCH)
@@ -87,6 +89,7 @@ void _post_setup_gpio() {
     File caldata = LittleFS.open("/calData", "r");
 
     if (!caldata) {
+        // ✅ KALAU FILE /calData TIDAK ADA, MASUK MODE KALIBRASI
         tft.setRotation(ROTATION);
         tft.calibrateTouch(calData, TFT_WHITE, TFT_BLACK, 10);
 
