@@ -2,6 +2,7 @@
 #include "core/utils.h"
 #include <Arduino.h>
 #include <interface.h>
+#include <LittleFS.h>
 
 #if defined(HAS_CAPACITIVE_TOUCH)
 #if defined(TOUCH_GT911_I2C)
@@ -13,16 +14,16 @@ struct TouchPointPro {
 };
 #else
 #include "CYD28_TouchscreenC.h"
-#define CYD28_DISPLAY_HOR_RES_MAX 240
-#define CYD28_DISPLAY_VER_RES_MAX 320
+#define CYD28_DISPLAY_HOR_RES_MAX 270
+#define CYD28_DISPLAY_VER_RES_MAX 360
 CYD28_TouchC touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #endif
 #elif defined(USE_TFT_eSPI_TOUCH)
 #define XPT2046_CS TOUCH_CS
 #else
 #include "CYD28_TouchscreenR.h"
-#define CYD28_DISPLAY_HOR_RES_MAX 320
-#define CYD28_DISPLAY_VER_RES_MAX 240
+#define CYD28_DISPLAY_HOR_RES_MAX 270
+#define CYD28_DISPLAY_VER_RES_MAX 360
 CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #if defined(TOUCH_XPT2046_SPI)
 #define XPT2046_CS XPT2046_SPI_CONFIG_CS_GPIO_NUM
@@ -67,6 +68,21 @@ void _setup_gpio() {
 ** Description:   second stage gpio setup to make a few functions work
 ***************************************************************************************/
 void _post_setup_gpio() {
+    // ==========================================
+    // FORCE FORMAT LITTLEFS - HAPUS CALDATA & CONFIG
+    // Uncomment baris di bawah ini sekali aja, upload, lalu comment lagi
+    // ==========================================
+    /*
+    if (LittleFS.begin(true)) {
+        Serial.println(">>> FORMATTING LITTLEFS... <<<");
+        LittleFS.format();
+        Serial.println(">>> FORMAT DONE! RESTARTING... <<<");
+        delay(3000);
+        ESP.restart();
+    }
+    */
+    // ==========================================
+
 #if defined(USE_TFT_eSPI_TOUCH)
     pinMode(TOUCH_CS, OUTPUT);
     uint16_t calData[5];
