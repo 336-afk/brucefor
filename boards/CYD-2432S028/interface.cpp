@@ -8,10 +8,7 @@
 #if defined(TOUCH_GT911_I2C)
 #include "TouchDrvGT911.hpp"
 TouchDrvGT911 touch;
-struct TouchPointPro {
-    int16_t x = 0;
-    int16_t y = 0;
-};
+struct TouchPointPro { int16_t x = 0; int16_t y = 0; };
 #else
 #include "CYD28_TouchscreenC.h"
 #define CYD28_DISPLAY_HOR_RES_MAX 240
@@ -22,7 +19,7 @@ CYD28_TouchC touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #define XPT2046_CS TOUCH_CS
 #else
 #include "CYD28_TouchscreenR.h"
-// ✅ FIX: Resolusi disesuaikan dengan orientasi baca XPT2046 (portrait native)
+// ✅ FIX: Resolusi touch disesuaikan dengan orientasi native XPT2046 (portrait)
 #define CYD28_DISPLAY_HOR_RES_MAX 240
 #define CYD28_DISPLAY_VER_RES_MAX 320
 CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
@@ -33,18 +30,12 @@ CYD28_TouchR touch(CYD28_DISPLAY_HOR_RES_MAX, CYD28_DISPLAY_VER_RES_MAX);
 #endif
 #endif
 
-/***************************************************************************************
-** Function name: _setup_gpio()
-** Location: main.cpp
-** Description:   initial setup for the device
-***************************************************************************************/
 SPIClass touchSPI;
 void _setup_gpio() {
 #ifndef HAS_CAPACITIVE_TOUCH
     pinMode(XPT2046_CS, OUTPUT);
     digitalWrite(XPT2046_CS, HIGH);
 #endif
-
 #if defined(TOUCH_GT911_I2C)
     pinMode(BOARD_TOUCH_INT, INPUT);
     touch.setPins(-1, BOARD_TOUCH_INT);
@@ -59,21 +50,14 @@ void _setup_gpio() {
     } else log_i("Touch IC Started");
 #endif
 #endif
-
     bruceConfig.colorInverted = 0;
 }
 
-/***************************************************************************************
-** Function name: _post_setup_gpio()
-** Location: main.cpp
-** Description:   second stage gpio setup to make a few functions work
-***************************************************************************************/
 void _post_setup_gpio() {
 #if defined(USE_TFT_eSPI_TOUCH)
     pinMode(TOUCH_CS, OUTPUT);
     uint16_t calData[5];
     File caldata = LittleFS.open("/calData", "r");
-
     if (!caldata) {
         tft.setRotation(ROTATION);
         tft.calibrateTouch(calData, TFT_WHITE, TFT_BLACK, 10);
@@ -94,17 +78,11 @@ void _post_setup_gpio() {
     }
     tft.setTouch(calData);
 #endif
-
     pinMode(TFT_BL, OUTPUT);
     ledcAttach(TFT_BL, TFT_BRIGHT_FREQ, TFT_BRIGHT_Bits);
     ledcWrite(TFT_BL, 255);
 }
 
-/*********************************************************************
-** Function: setBrightness
-** location: settings.cpp
-** set brightness value
-**********************************************************************/
 void _setBrightness(uint8_t brightval) {
     int dutyCycle;
     if (brightval == 100) dutyCycle = 255;
@@ -116,16 +94,11 @@ void _setBrightness(uint8_t brightval) {
     ledcWrite(TFT_BL, dutyCycle);
 }
 
-/*********************************************************************
-** Function: InputHandler
-** Handles the variables PrevPress, NextPress, SelPress, AnyKeyPress and EscPress
-**********************************************************************/
 void InputHandler(void) {
     static long d_tmp = 0;
     if (millis() - d_tmp > 200 || LongPress) {
 #if defined(USE_TFT_eSPI_TOUCH)
-        TouchPoint t;
-        checkPowerSaveTime();
+        TouchPoint t; checkPowerSaveTime();
         bool _IH_touched = tft.getTouch(&t.x, &t.y);
         if (_IH_touched) {
             NextPress = false; PrevPress = false; UpPress = false; DownPress = false;
@@ -133,10 +106,7 @@ void InputHandler(void) {
             NextPagePress = false; PrevPagePress = false;
             touchPoint.pressed = false; _IH_touched = false;
 #elif defined(TOUCH_GT911_I2C)
-        static unsigned long tm = millis();
-        TouchPointPro t;
-        uint8_t touched = 0;
-        uint8_t rot = 5;
+        static unsigned long tm = millis(); TouchPointPro t; uint8_t touched = 0; uint8_t rot = 5;
         if (rot != bruceConfigPins.rotation) {
             if (bruceConfigPins.rotation == 1) { touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH); touch.setSwapXY(true); touch.setMirrorXY(false, true); }
             if (bruceConfigPins.rotation == 3) { touch.setMaxCoordinates(TFT_HEIGHT, TFT_WIDTH); touch.setSwapXY(true); touch.setMirrorXY(true, false); }
@@ -144,10 +114,8 @@ void InputHandler(void) {
             if (bruceConfigPins.rotation == 2) { touch.setMaxCoordinates(TFT_WIDTH, TFT_HEIGHT); touch.setSwapXY(false); touch.setMirrorXY(true, true); }
             rot = bruceConfigPins.rotation;
         }
-        static bool lastTouchState = false;
-        static unsigned long lastTouchTime = 0;
-        touched = touch.getPoint(&t.x, &t.y);
-        bool currentTouchState = touched > 0;
+        static bool lastTouchState = false; static unsigned long lastTouchTime = 0;
+        touched = touch.getPoint(&t.x, &t.y); bool currentTouchState = touched > 0;
         if (currentTouchState && !lastTouchState && (millis() - lastTouchTime) > 100) { lastTouchTime = millis(); }
         else if (!currentTouchState || lastTouchState) { touched = 0; }
         lastTouchState = currentTouchState;
@@ -155,7 +123,7 @@ void InputHandler(void) {
 #else
         if (touch.touched()) {
             auto t = touch.getPointScaled();
-            // ✅ DEBUG: Liat koordinat touch di Serial Monitor (115200 baud)
+            // ✅ DEBUG: Cek koordinat touch di Serial Monitor (115200 baud)
             Serial.printf("TOUCH: X=%d Y=%d\n", t.x, t.y);
 #endif
 #if !defined(TOUCH_GT911_I2C)
@@ -164,8 +132,7 @@ void InputHandler(void) {
             if (bruceConfigPins.rotation == 0) { int tmp = t.x; t.x = tftWidth - t.y; t.y = tmp; }
             if (bruceConfigPins.rotation == 2) { int tmp = t.x; t.x = t.y; t.y = (tftHeight + 20) - tmp; }
 #endif
-            if (!wakeUpScreen()) AnyKeyPress = true;
-            else goto END;
+            if (!wakeUpScreen()) AnyKeyPress = true; else goto END;
             touchPoint.x = t.x; touchPoint.y = t.y; touchPoint.pressed = true;
             touchHeatMap(touchPoint);
         END:
@@ -174,19 +141,5 @@ void InputHandler(void) {
     }
 }
 
-/*********************************************************************
-** Function: powerOff
-** location: mykeyboard.cpp
-** Turns off the device (or try to)
-**********************************************************************/
-void powerOff() {
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW);
-    esp_deep_sleep_start();
-}
-
-/*********************************************************************
-** Function: checkReboot
-** location: mykeyboard.cpp
-** Btn logic to turn off the device (name is odd btw)
-**********************************************************************/
+void powerOff() { esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW); esp_deep_sleep_start(); }
 void checkReboot() {}
